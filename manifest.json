@@ -1,0 +1,9 @@
+{
+	"id": "paste-image-rename-convert",
+	"name": "Paste Image Rename and Convert",
+	"version": "1.0.0",
+	"minAppVersion": "1.8.9",
+	"description": "Rename pasted images and convert them to webp or jpg",
+	"author": "iaos",
+	"isDesktopOnly": false
+}
