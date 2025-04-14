@@ -1,7 +1,7 @@
 import { Modal, TFile, App, Setting } from 'obsidian';
 
 import {
-  path, createElementTree, debugLog, lockInputMethodComposition,
+	path, createElementTree, debugLog, lockInputMethodComposition,
 } from './utils';
 
 interface State {
@@ -60,7 +60,8 @@ export class ImageBatchRenameModal extends Modal {
 				e.preventDefault()
 				if (!this.state.namePattern) {
 					errorEl.innerText = 'Error: "Name pattern" could not be empty'
-					errorEl.style.display = 'block'
+					errorEl.classList.add('error-visible');
+					errorEl.classList.remove('error-hidden');
 					return
 				}
 				this.matchImageNames(tbodyEl)

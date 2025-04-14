@@ -344,8 +344,11 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 	}
 
 	openRenameModal(file: TFile, stem: string, sourcePath: string) {
+		if (!(file instanceof TFile)) {
+			throw new Error('Invalid file type');
+		}
 		const modal = new ImageRenameModal(
-			this.app, this, file as TFile, stem,
+			this.app, this, file, stem,
 			(confirmedName: string) => {
 				debugLog('Confirmed name:', confirmedName);
 				this.renameFile(file, confirmedName, sourcePath, true);
@@ -751,7 +754,8 @@ class ImageRenameModal extends Modal {
 				e.preventDefault();
 				if (!stem) {
 					errorEl.innerText = 'Error: "New name" could not be empty';
-					errorEl.style.display = 'block';
+					errorEl.classList.add('error-visible');
+					errorEl.classList.remove('error-hidden');
 					return;
 				}
 				doRename();
@@ -773,7 +777,8 @@ class ImageRenameModal extends Modal {
 					.onClick(() => {
 						if (!stem) {
 							errorEl.innerText = 'Error: "New name" could not be empty';
-							errorEl.style.display = 'block';
+							errorEl.classList.add('error-visible');
+							errorEl.classList.remove('error-hidden');
 							return;
 						}
 						doRename();
