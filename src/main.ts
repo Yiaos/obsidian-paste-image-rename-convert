@@ -824,7 +824,7 @@ class SettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
-		containerEl.createEl("h2", { text: "Rename Settings" });
+		new Setting(containerEl).setName('Rename Settings').setHeading();
 		new Setting(containerEl)
 			.setName('Image name pattern')
 			.setDesc(imageNamePatternDesc)
@@ -909,7 +909,7 @@ class SettingTab extends PluginSettingTab {
 				}
 				));
 
-		containerEl.createEl("h2", { text: "Convert Settings" });
+		new Setting(containerEl).setName('Convert Settings').setHeading();
 		new Setting(containerEl)
 			.setName('Convert PNG to JPEG')
 			.setDesc('Enable to automatically convert PNG images to JPEG format')
