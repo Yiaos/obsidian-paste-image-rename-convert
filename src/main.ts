@@ -824,6 +824,8 @@ class SettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+		containerEl.empty();
+
 		new Setting(containerEl).setName('Rename Settings').setHeading();
 		new Setting(containerEl)
 			.setName('Image name pattern')
