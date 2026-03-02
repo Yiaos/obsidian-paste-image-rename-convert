@@ -127,6 +127,7 @@ export interface NameObj {
 	name: string
 	stem: string
 	extension: string
+	dir: string
 }
 
 export async function ConvertImage(imgBlob: Blob, quality: number, format = 'jpeg'): Promise<ArrayBuffer> {
@@ -142,10 +143,16 @@ export async function ConvertImage(imgBlob: Blob, quality: number, format = 'jpe
 		canvas.width = img.width;
 		canvas.height = img.height;
 		const ctx = canvas.getContext('2d');
+		if (!ctx) {
+			throw new Error('Failed to get canvas 2D context');
+		}
 
-		// Draw image on canvas (with white background for transparent PNGs)
-		ctx.fillStyle = '#FFFFFF';
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		// JPEG has no alpha channel, so flatten transparency to white only for JPEG.
+		const outputFormat = format.toLowerCase();
+		if (outputFormat === 'jpeg' || outputFormat === 'jpg') {
+			ctx.fillStyle = '#FFFFFF';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		}
 		ctx.drawImage(img, 0, 0);
 
 		// Determine MIME type and convert to requested format

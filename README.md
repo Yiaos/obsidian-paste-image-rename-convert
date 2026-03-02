@@ -33,6 +33,23 @@ So, with the help of Cursor + Claude, I combined code from [obsidian-paste-image
 
 Code readability and extensibility are limited, even though I asked Claude to optimize the code with each new feature.
 
+## Image Name Pattern Variables
+
+The `Image name pattern` setting supports the following placeholders:
+
+- `{{fileName}}`: active note name without `.md`
+- `{{dirName}}`: full vault-relative directory path of the active note (for example `resources/images`)
+- `{{imageNameKey}}`: value from note frontmatter key `imageNameKey`
+- `{{DATE:...}}`: Moment.js date format, for example `{{DATE:YYYY-MM-DD}}`
+
+Examples:
+
+- Pattern: `{{fileName}}` -> `My note.webp`, `My note-1.webp`, ...
+- Pattern: `{{dirName}}/{{fileName}}` -> `resources/images/My note.webp`
+- Pattern: `resources/images/{{fileName}}` -> always put renamed attachments in `resources/images`
+
+When `Handle all attachments` is enabled, the plugin handles non-image attachments too (unless excluded by extension regex).
+
 ## Acknowledgments
 
 Special thanks to:
