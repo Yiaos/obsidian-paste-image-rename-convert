@@ -54,6 +54,37 @@ const DEFAULT_SETTINGS: PluginSettings = {
 }
 
 const PASTED_IMAGE_PREFIX = 'Pasted image '
+const STARTUP_FILE_CREATE_GRACE_MS = 2000
+const SOURCE_FILE_RETRY_TIMES = 10
+const SOURCE_FILE_RETRY_DELAY_MS = 100
+
+function sanitizeRenameTarget(input: string): string {
+	return input
+		.replace(/\\/g, '/')
+		.split('/')
+		.map(segment => sanitizer.filename(segment))
+		.filter(segment => segment && segment !== '.' && segment !== '..')
+		.join('/')
+}
+
+function splitPathAndName(input: string): { dir: string, name: string } {
+	const normalized = input.replace(/\\/g, '/')
+	const slashIndex = normalized.lastIndexOf('/')
+	if (slashIndex < 0) {
+		return {
+			dir: '',
+			name: normalized,
+		}
+	}
+	return {
+		dir: normalized.slice(0, slashIndex),
+		name: normalized.slice(slashIndex + 1),
+	}
+}
+
+function isImageAttachment(file: TFile): boolean {
+	return /^(png|jpe?g|gif|tiff|webp|bmp|svg)$/i.test(file.extension)
+}
 
 function getActualExtension(extension: string, settings: PluginSettings): string {
 	// Normalize extension to lowercase
@@ -156,21 +187,36 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 	settings: PluginSettings
 	modals: Modal[] = []
 	excludeExtensionRegex: RegExp
+	pluginLoadTime = Date.now()
+	lastActiveMarkdownFilePath = ''
 
 	async onload() {
 		// eslint-disable-next-line @typescript-eslint/no-var-requires
 		const pkg = require('../package.json')
 		console.log(`Plugin loading: ${pkg.name} ${pkg.version} BUILD_ENV=${process.env.BUILD_ENV}`)
 		await this.loadSettings();
+		this.pluginLoadTime = Date.now()
+		const activeFile = this.getActiveFile()
+		if (activeFile) {
+			this.lastActiveMarkdownFilePath = activeFile.path
+		}
+
+		this.registerEvent(
+			this.app.workspace.on('file-open', (file) => {
+				if (file instanceof TFile && file.extension.toLowerCase() === 'md') {
+					this.lastActiveMarkdownFilePath = file.path
+				}
+			})
+		)
 
 		this.registerEvent(
 			this.app.vault.on('create', (file) => {
 				// debugLog('file created', file)
 				if (!(file instanceof TFile))
 					return
-				const timeGapMs = (new Date().getTime()) - file.stat.ctime
-				// if the file is created more than 1 second ago, the event is most likely be fired on vault initialization when starting Obsidian app, ignore it
-				if (timeGapMs > 1000)
+
+				// Ignore stale create events fired while Obsidian initializes existing files.
+				if (file.stat.ctime < this.pluginLoadTime - STARTUP_FILE_CREATE_GRACE_MS)
 					return
 				// always ignore markdown file creation
 				if (isMarkdownFile(file))
@@ -221,25 +267,25 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 	}
 
 	async startRenameProcess(file: TFile, autoRename = false) {
-		// Get active file first
-		const activeFile = this.getActiveFile();
-		if (!activeFile) {
-			new Notice('Error: No active file found for renaming');
+		// Drag-and-drop attachments may fire before the markdown view is fully active.
+		const sourceFile = await this.resolveSourceFileForRename();
+		if (!sourceFile) {
+			new Notice('Error: No markdown file found for attachment renaming');
 			return;
 		}
 
 		try {
 			// Generate new file name
-			const { stem, newName, isMeaningful } = this.generateNewName(file, activeFile);
+			const { stem, newName, isMeaningful } = this.generateNewName(file, sourceFile);
 			debugLog('Generated newName:', newName, 'meaningful:', isMeaningful);
 
 			// Determine whether to auto-rename or show the modal
 			if (isMeaningful && autoRename) {
 				// Perform automatic renaming
-				await this.renameFile(file, newName, activeFile.path, true);
+				await this.renameFile(file, newName, sourceFile.path, true);
 			} else {
 				// Show rename modal with suggested name
-				this.openRenameModal(file, isMeaningful ? stem : '', activeFile.path);
+				this.openRenameModal(file, isMeaningful ? stem : '', sourceFile.path);
 			}
 		} catch (error) {
 			debugLog('Error in startRenameProcess:', error);
@@ -247,20 +293,62 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		}
 	}
 
+	private async resolveSourceFileForRename(): Promise<TFile | null> {
+		const immediateActiveFile = this.getActiveFile()
+		if (immediateActiveFile) {
+			return immediateActiveFile
+		}
+
+		const fallbackFile = this.getLastActiveMarkdownFile()
+		if (fallbackFile) {
+			return fallbackFile
+		}
+
+		for (let i = 0; i < SOURCE_FILE_RETRY_TIMES; i++) {
+			await new Promise(resolve => setTimeout(resolve, SOURCE_FILE_RETRY_DELAY_MS))
+			const retryActiveFile = this.getActiveFile()
+			if (retryActiveFile) {
+				return retryActiveFile
+			}
+			const retryFallbackFile = this.getLastActiveMarkdownFile()
+			if (retryFallbackFile) {
+				return retryFallbackFile
+			}
+		}
+
+		return null
+	}
+
+	private getLastActiveMarkdownFile(): TFile | null {
+		if (!this.lastActiveMarkdownFilePath) {
+			return null
+		}
+		const file = this.app.vault.getAbstractFileByPath(this.lastActiveMarkdownFilePath)
+		if (!(file instanceof TFile)) {
+			return null
+		}
+		return file.extension.toLowerCase() === 'md' ? file : null
+	}
+
 	async renameFile(file: TFile, inputNewName: string, sourcePath: string, replaceCurrentLine?: boolean) {
 		if (!file || !inputNewName) {
 			throw new Error('Invalid file or new name');
 		}
 
-		// Sanitize input name
-		inputNewName = sanitizer.filename(inputNewName);
+		// Sanitize input path/name while preserving directory separators.
+		inputNewName = sanitizeRenameTarget(inputNewName);
 		if (!inputNewName) {
 			throw new Error('New name cannot be empty after sanitization');
 		}
 
+		const { dir: inputDir, name: inputBaseName } = splitPathAndName(inputNewName);
+		if (!inputBaseName) {
+			throw new Error('New file name cannot be empty');
+		}
+
 		// Check if inputNewName already has an extension
 		let nameToDedup;
-		const { extension } = parseFileName(inputNewName);
+		const { extension } = parseFileName(inputBaseName);
 
 		if (extension) {
 			// Input already has an extension, use it as is
@@ -268,12 +356,12 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		} else {
 			// Add the appropriate extension
 			const actualExtension = getActualExtension(file.extension, this.settings);
-			nameToDedup = `${inputNewName}.${actualExtension}`;
+			nameToDedup = inputDir ? `${inputDir}/${inputBaseName}.${actualExtension}` : `${inputBaseName}.${actualExtension}`;
 		}
 
 		// Deduplicate name
-		const { name: newName } = await this.deduplicateNewName(nameToDedup, file);
-		debugLog('Deduplicated newName:', newName);
+		const { name: newName, dir: newDir } = await this.deduplicateNewName(nameToDedup, file);
+		debugLog('Deduplicated newName:', newName, 'targetDir:', newDir);
 
 		// Store original name for notification
 		const originName = file.name;
@@ -287,7 +375,8 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 			const linkText = this.app.fileManager.generateMarkdownLink(file, sourcePath);
 
 			// Calculate new file path
-			const newPath = path.join(file.parent.path, newName);
+			await this.ensureFolderExists(newDir);
+			const newPath = newDir ? path.join(newDir, newName) : newName;
 
 			// Rename the file using Obsidian API
 			await this.app.fileManager.renameFile(file, newPath);
@@ -299,11 +388,25 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 
 			// Show success notification if enabled
 			if (!this.settings.disableRenameNotice) {
-				new Notice(`Renamed ${originName} to ${newName}`);
+				new Notice(`Renamed ${originName} to ${newPath}`);
 			}
 		} catch (error) {
 			debugLog('Error renaming file:', error);
 			throw new Error(`Failed to rename ${originName}: ${error.message}`);
+		}
+	}
+
+	private async ensureFolderExists(folderPath: string): Promise<void> {
+		if (!folderPath) {
+			return
+		}
+		const segments = folderPath.split('/').filter(Boolean)
+		let current = ''
+		for (const segment of segments) {
+			current = current ? `${current}/${segment}` : segment
+			if (!(await this.app.vault.adapter.exists(current))) {
+				await this.app.vault.createFolder(current)
+			}
 		}
 	}
 
@@ -481,7 +584,7 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		const templateVars = {
 			imageNameKey,
 			fileName: activeFile.basename,
-			dirName: activeFile.parent?.name || '',
+			dirName: activeFile.parent?.path || '',
 			firstHeading,
 		};
 
@@ -514,18 +617,28 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 
 	// newName: foo.ext
 	async deduplicateNewName(newName: string, file: TFile): Promise<NameObj> {
-		// Get directory path
-		const dir = file.parent.path;
+		const { dir: inputDir, name: inputName } = splitPathAndName(newName)
+		if (!inputName) {
+			throw new Error('Target file name is empty')
+		}
 
-		// List all files in the directory
-		const listed = await this.app.vault.adapter.list(dir);
-		debugLog('Sibling files:', listed);
+		// Use input directory (vault-relative) or keep the original directory.
+		const dir = inputDir || file.parent.path;
+
+		// List all files in the target directory if it exists.
+		let listedFiles: string[] = []
+		if (dir === '' || await this.app.vault.adapter.exists(dir)) {
+			const listed = await this.app.vault.adapter.list(dir);
+			listedFiles = listed.files
+			debugLog('Sibling files:', listed);
+		}
 
 		// Parse file name to get stem and extension
-		const { stem: newNameStem, extension: newNameExt } = parseFileName(newName);
+		const { stem: newNameStem, extension: newNameExt } = parseFileName(inputName);
 
 		// Use the provided extension or fallback to file's extension
 		const actualExtension = newNameExt || file.extension;
+		const actualExtensionEscaped = escapeRegExp(actualExtension);
 
 		// Prepare for duplicate detection
 		const delimiter = this.settings.dupNumberDelimiter;
@@ -543,17 +656,17 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 
 		// Build regex for finding duplicates with numbers
 		const dupNameRegex = this.settings.dupNumberAtStart
-			? new RegExp(`^(\\d+)${delimiterEscaped}${newNameStemEscaped}\\.${actualExtension}$`) // Number at start: 1-name.ext
-			: new RegExp(`^${newNameStemEscaped}${delimiterEscaped}(\\d+)\\.${actualExtension}$`); // Number at end: name-1.ext
+			? new RegExp(`^(\\d+)${delimiterEscaped}${newNameStemEscaped}\\.${actualExtensionEscaped}$`) // Number at start: 1-name.ext
+			: new RegExp(`^${newNameStemEscaped}${delimiterEscaped}(\\d+)\\.${actualExtensionEscaped}$`); // Number at end: name-1.ext
 
 		debugLog('Duplicate name regex:', dupNameRegex);
 
 		// Check all files in the directory
-		for (const filePath of listed.files) {
+		for (const filePath of listedFiles) {
 			const siblingName = path.basename(filePath);
 
 			// Skip the current file (avoid self-comparison)
-			if (file.name === siblingName) {
+			if (file.path === filePath) {
 				continue;
 			}
 
@@ -595,10 +708,16 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 			name: finalName,
 			stem: newNameStem,
 			extension: actualExtension,
+			dir,
 		};
 	}
 
 	getActiveFile() {
+		const workspaceFile = this.app.workspace.getActiveFile()
+		if (workspaceFile instanceof TFile && workspaceFile.extension.toLowerCase() === 'md') {
+			debugLog('active file from workspace', workspaceFile.path)
+			return workspaceFile
+		}
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView)
 		const file = view?.file
 		debugLog('active file', file?.path)
@@ -676,16 +795,18 @@ class ImageRenameModal extends Modal {
 	onOpen() {
 		this.containerEl.addClass('image-rename-modal')
 		const { contentEl, titleEl } = this;
-		titleEl.setText('Rename image')
+		titleEl.setText(isImageAttachment(this.src) ? 'Rename image' : 'Rename attachment')
 
-		const imageContainer = contentEl.createDiv({
-			cls: 'image-container',
-		})
-		imageContainer.createEl('img', {
-			attr: {
-				src: this.app.vault.getResourcePath(this.src),
-			}
-		})
+		if (isImageAttachment(this.src)) {
+			const imageContainer = contentEl.createDiv({
+				cls: 'image-container',
+			})
+			imageContainer.createEl('img', {
+				attr: {
+					src: this.app.vault.getResourcePath(this.src),
+				}
+			})
+		}
 
 		let stem = this.stem
 		// Use original file extension unless format conversion is needed
@@ -804,12 +925,13 @@ The pattern indicates how the new name should be generated.
 
 Available variables:
 - {{fileName}}: name of the active file, without ".md" extension.
-- {{dirName}}: name of the directory which contains the document (the root directory of vault results in an empty variable).
+- {{dirName}}: full vault-relative directory path of the active file (for example "resources/images"). The vault root results in an empty variable.
 - {{imageNameKey}}: this variable is read from the markdown file's frontmatter, from the same key "imageNameKey".
 - {{DATE:$FORMAT}}: use "$FORMAT" to format the current date, "$FORMAT" must be a Moment.js format string, e.g. {{DATE:YYYY-MM-DD}}.
 
-Here are some examples from pattern to image names (repeat in sequence), variables: fileName = "My note", imageNameKey = "foo":
+Here are some examples from pattern to image names (repeat in sequence), variables: fileName = "My note", dirName = "resources/images", imageNameKey = "foo":
 - {{fileName}}: My note, My note-1, My note-2
+- {{dirName}}/{{fileName}}: resources/images/My note, resources/images/My note-1, resources/images/My note-2
 - {{imageNameKey}}: foo, foo-1, foo-2
 - {{imageNameKey}}-{{DATE:YYYYMMDD}}: foo-20220408, foo-20220408-1, foo-20220408-2
 `
