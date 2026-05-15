@@ -1,0 +1,79 @@
+{
+	"plugin": {
+		"name": "图片粘贴重命名转换",
+		"description": "粘贴图片时自动重命名并转换为 webp 或 jpg 格式"
+	},
+	"commands": {
+		"batchRenameEmbededFiles": "批量重命名当前文件中的嵌入图片",
+		"batchRenameAllImages": "立即批量重命名当前文件中的所有图片"
+	},
+	"notices": {
+		"noActiveFile": "错误：未找到用于重命名的活动文件",
+		"renameFailed": "重命名文件失败：",
+		"renamedSuccess": "已将 {{origin}} 重命名为 {{new}}",
+		"noActiveFileForBatch": "错误：未找到活动文件",
+		"noEmbedsFound": "当前文件中未找到嵌入内容",
+		"batchRenaming": "正在批量重命名图片...",
+		"batchRenameComplete": "批量重命名完成：成功重命名 {{success}} 个文件，{{failed}} 个失败",
+		"noImagesFound": "未找到需要重命名的图片",
+		"imageConversionFailed": "图片转换失败：{{error}}"
+	},
+	"imageRenameModal": {
+		"title": "重命名图片",
+		"originPath": "原始路径",
+		"newPath": "新路径",
+		"newName": "新名称",
+		"newNamePlaceholder": "请输入图片的新名称（不含扩展名）",
+		"rename": "重命名",
+		"cancel": "取消",
+		"newNameEmptyError": "错误：新名称不能为空"
+	},
+	"settings": {
+		"generalSettings": "通用设置",
+		"language": "语言",
+		"languageDesc": "选择插件界面的显示语言",
+		"languageSystem": "跟随系统",
+		"renameSettings": "重命名设置",
+		"imageNamePattern": "图片命名模式",
+		"imageNamePatternDesc": "此模式用于指定如何生成新名称。\n\n可用变量：\n- {{fileName}}：当前活动文件的名称，不含扩展名（不含.md）。\n- {{dirName}}：包含文档的目录名称（如果是vault根目录，则为空）。\n- {{imageNameKey}}：此变量从markdown文件的前置元数据中读取，键名为 imageNameKey。\n- {{DATE:$FORMAT}}：使用 $FORMAT 格式化当前日期，$FORMAT 必须是 Moment.js 格式字符串，例如 {{DATE:YYYY-MM-DD}}。\n\n以下是命名模式示例（重复时依次递增），变量：fileName = 我的笔记，imageNameKey = foo：\n- {{fileName}}：我的笔记、我的笔记-1、我的笔记-2\n- {{imageNameKey}}：foo、foo-1、foo-2\n- {{imageNameKey}}-{{DATE:YYYYMMDD}}：foo-20220408、foo-20220408-1、foo-20220408-2",
+		"dupNumberAtStart": "重复数字在开头（或结尾）",
+		"dupNumberAtStartDesc": "如果启用，重复数字将作为图片名称的前缀添加；否则将作为后缀添加。",
+		"dupNumberDelimiter": "重复数字分隔符",
+		"dupNumberDelimiterDesc": "用于生成重复数字前缀/后缀的分隔符。例如，如果值为 -，后缀将类似于 -1、-2、-3，前缀将类似于 1-、2-、3-。只能使用文件名中有效的字符。",
+		"dupNumberAlways": "始终添加重复数字",
+		"dupNumberAlwaysDesc": "如果启用，将始终向图片名称添加重复数字。否则，仅在名称重复时添加。",
+		"autoRename": "自动重命名",
+		"autoRenameDesc": "默认情况下，系统将始终显示重命名确认弹窗。如果启用此选项，图片粘贴后将自动重命名。",
+		"handleAllAttachments": "处理所有附件",
+		"handleAllAttachmentsDesc": "默认情况下，插件仅处理名称以Pasted image开头的图片，\n这是Obsidian用于从粘贴内容创建图片的前缀。\n如果启用此选项，插件将处理在保管库中创建的所有附件。",
+		"excludeExtensionPattern": "排除扩展名模式",
+		"excludeExtensionPatternDesc": "此选项仅在启用处理所有附件时有效。\n编写正则表达式模式以排除某些扩展名不被处理。只使用第一行。",
+		"convertSettings": "转换设置",
+		"convertPngToJpeg": "将 PNG 转换为 JPEG",
+		"convertPngToJpegDesc": "启用后自动将 PNG 图片转换为 JPEG 格式",
+		"convertPngToWebp": "将 PNG 转换为 WebP",
+		"convertPngToWebpDesc": "启用后自动将 PNG 图片转换为 WebP 格式（更高效的压缩）",
+		"imageQuality": "图片质量",
+		"imageQualityDesc": "图片转换质量（0.1-1.0）",
+		"disableRenameNotice": "禁用重命名通知",
+		"disableRenameNoticeDesc": "如果不想在重命名图片时看到通知，请关闭此选项。\n请注意，Obsidian可能会在链接更改时显示通知，此选项无法禁用该通知。"
+	},
+	"batchRenameModal": {
+		"title": "批量重命名嵌入文件",
+		"namePattern": "名称模式",
+		"namePatternPlaceholder": "请输入要匹配文件的名称模式（正则表达式）",
+		"extPattern": "扩展名模式",
+		"extPatternPlaceholder": "请输入要匹配文件的扩展名模式（正则表达式）",
+		"nameReplace": "名称替换",
+		"nameReplacePlaceholder": "请输入要替换匹配名称的字符串（使用 $1、$2 表示正则表达式分组）",
+		"originalPath": "原始路径",
+		"renamedName": "新名称",
+		"renameAll": "全部重命名",
+		"cancel": "取消",
+		"confirmTitle": "确认全部重命名",
+		"confirmMessage": "确定吗？这将重命名所有 {{count}} 个匹配模式的图片。",
+		"namePatternEmptyError": "错误：名称模式不能为空",
+		"yes": "是",
+		"no": "否"
+	}
+}
