@@ -13,6 +13,7 @@ import {
 
 import { ImageBatchRenameModal } from './batch';
 import { renderTemplate } from './template';
+import { initI18n, t, setLocale } from './i18n';
 import {
 	createElementTree,
 	DEBUG,
@@ -26,6 +27,7 @@ import {
 } from './utils';
 
 interface PluginSettings {
+	language: 'en' | 'zh-cn'
 	imageNamePattern: string
 	dupNumberAtStart: boolean
 	dupNumberDelimiter: string
@@ -40,6 +42,7 @@ interface PluginSettings {
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
+	language: 'en',
 	imageNamePattern: '{{fileName}}',
 	dupNumberAtStart: false,
 	dupNumberDelimiter: '-',
@@ -148,7 +151,7 @@ async function convertImageIfNeeded(app: App, file: TFile, settings: PluginSetti
 		debugLog('File updated successfully');
 	} catch (error) {
 		console.error('Image conversion failed:', error);
-		new Notice(`Image conversion failed: ${error.message}`);
+		new Notice(t('notices.imageConversionFailed', { error: error.message }));
 	}
 }
 
@@ -162,6 +165,7 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		const pkg = require('../package.json')
 		console.log(`Plugin loading: ${pkg.name} ${pkg.version} BUILD_ENV=${process.env.BUILD_ENV}`)
 		await this.loadSettings();
+		initI18n(this.app, this.settings.language as 'en' | 'zh-cn');
 
 		this.registerEvent(
 			this.app.vault.on('create', (file) => {
@@ -196,11 +200,11 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		}
 		this.addCommand({
 			id: 'batch-rename-embeded-files',
-			name: 'Batch rename embeded files (in the current file)',
+			name: t('commands.batchRenameEmbededFiles'),
 			callback: startBatchRenameProcess,
 		})
 		if (DEBUG) {
-			this.addRibbonIcon('wand-glyph', 'Batch rename embeded files', startBatchRenameProcess)
+			this.addRibbonIcon('wand-glyph', t('commands.batchRenameEmbededFiles'), startBatchRenameProcess)
 		}
 
 		const batchRenameAllImages = () => {
@@ -208,11 +212,11 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		}
 		this.addCommand({
 			id: 'batch-rename-all-images',
-			name: 'Batch rename all images instantly (in the current file)',
+			name: t('commands.batchRenameAllImages'),
 			callback: batchRenameAllImages,
 		})
 		if (DEBUG) {
-			this.addRibbonIcon('wand-glyph', 'Batch rename all images instantly (in the current file)', batchRenameAllImages)
+			this.addRibbonIcon('wand-glyph', t('commands.batchRenameAllImages'), batchRenameAllImages)
 		}
 
 		// add settings tab
@@ -224,7 +228,7 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		// Get active file first
 		const activeFile = this.getActiveFile();
 		if (!activeFile) {
-			new Notice('Error: No active file found for renaming');
+			new Notice(t('notices.noActiveFile'));
 			return;
 		}
 
@@ -243,7 +247,7 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 			}
 		} catch (error) {
 			debugLog('Error in startRenameProcess:', error);
-			new Notice(`Failed to rename file: ${error.message}`);
+			new Notice(`${t('notices.renameFailed')} ${error.message}`);
 		}
 	}
 
@@ -299,7 +303,7 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 
 			// Show success notification if enabled
 			if (!this.settings.disableRenameNotice) {
-				new Notice(`Renamed ${originName} to ${newName}`);
+				new Notice(t('notices.renamedSuccess', { origin: originName, new: newName }));
 			}
 		} catch (error) {
 			debugLog('Error renaming file:', error);
@@ -381,13 +385,13 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 	async batchRenameAllImages() {
 		const activeFile = this.getActiveFile()
 		if (!activeFile) {
-			new Notice('Error: No active file found');
+			new Notice(t('notices.noActiveFileForBatch'));
 			return;
 		}
 
 		const fileCache = this.app.metadataCache.getFileCache(activeFile)
 		if (!fileCache || !fileCache.embeds) {
-			new Notice('No embeds found in the current file');
+			new Notice(t('notices.noEmbedsFound'));
 			return;
 		}
 
@@ -396,7 +400,7 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 		let failCount = 0;
 
 		// Show initial notice
-		const initialNotice = new Notice('Batch renaming images...', 0);
+		const initialNotice = new Notice(t('notices.batchRenaming'), 0);
 
 		try {
 			for (const embed of fileCache.embeds) {
@@ -437,13 +441,9 @@ export default class PasteImageRenameConvertPlugin extends Plugin {
 
 			// Show summary notification
 			if (successCount > 0 || failCount > 0) {
-				let message = `Batch rename complete: ${successCount} files renamed successfully`;
-				if (failCount > 0) {
-					message += `, ${failCount} failed`;
-				}
-				new Notice(message);
+				new Notice(t('notices.batchRenameComplete', { success: String(successCount), failed: String(failCount) }));
 			} else {
-				new Notice('No images found to rename');
+				new Notice(t('notices.noImagesFound'));
 			}
 		}
 	}
@@ -676,7 +676,7 @@ class ImageRenameModal extends Modal {
 	onOpen() {
 		this.containerEl.addClass('image-rename-modal')
 		const { contentEl, titleEl } = this;
-		titleEl.setText('Rename image')
+		titleEl.setText(t('imageRenameModal.title'))
 
 		const imageContainer = contentEl.createDiv({
 			cls: 'image-container',
@@ -705,7 +705,7 @@ class ImageRenameModal extends Modal {
 					children: [
 						{
 							tag: 'span',
-							text: 'Origin path',
+							text: t('imageRenameModal.originPath'),
 						},
 						{
 							tag: 'span',
@@ -718,7 +718,7 @@ class ImageRenameModal extends Modal {
 					children: [
 						{
 							tag: 'span',
-							text: 'New path',
+							text: t('imageRenameModal.newPath'),
 						},
 						{
 							tag: 'span',
@@ -736,8 +736,8 @@ class ImageRenameModal extends Modal {
 		}
 
 		const nameSetting = new Setting(contentEl)
-			.setName('New name')
-			.setDesc('Please input the new name for the image (without extension)')
+			.setName(t('imageRenameModal.newName'))
+			.setDesc(t('imageRenameModal.newNamePlaceholder'))
 			.addText(text => text
 				.setValue(stem)
 				.onChange(async (value) => {
@@ -753,7 +753,7 @@ class ImageRenameModal extends Modal {
 			if (e.key === 'Enter' && !nameInputState.lock) {
 				e.preventDefault();
 				if (!stem) {
-					errorEl.innerText = 'Error: "New name" could not be empty';
+					errorEl.innerText = t('imageRenameModal.newNameEmptyError');
 					errorEl.classList.add('error-visible');
 					errorEl.classList.remove('error-hidden');
 					return;
@@ -773,10 +773,10 @@ class ImageRenameModal extends Modal {
 		new Setting(contentEl)
 			.addButton(button => {
 				button
-					.setButtonText('Rename')
+					.setButtonText(t('imageRenameModal.rename'))
 					.onClick(() => {
 						if (!stem) {
-							errorEl.innerText = 'Error: "New name" could not be empty';
+							errorEl.innerText = t('imageRenameModal.newNameEmptyError');
 							errorEl.classList.add('error-visible');
 							errorEl.classList.remove('error-hidden');
 							return;
@@ -787,7 +787,7 @@ class ImageRenameModal extends Modal {
 			})
 			.addButton(button => {
 				button
-					.setButtonText('Cancel')
+					.setButtonText(t('imageRenameModal.cancel'))
 					.onClick(() => { this.close(); });
 			});
 	}
@@ -798,21 +798,6 @@ class ImageRenameModal extends Modal {
 		this.onCloseExtra()
 	}
 }
-
-const imageNamePatternDesc = `
-The pattern indicates how the new name should be generated.
-
-Available variables:
-- {{fileName}}: name of the active file, without ".md" extension.
-- {{dirName}}: name of the directory which contains the document (the root directory of vault results in an empty variable).
-- {{imageNameKey}}: this variable is read from the markdown file's frontmatter, from the same key "imageNameKey".
-- {{DATE:$FORMAT}}: use "$FORMAT" to format the current date, "$FORMAT" must be a Moment.js format string, e.g. {{DATE:YYYY-MM-DD}}.
-
-Here are some examples from pattern to image names (repeat in sequence), variables: fileName = "My note", imageNameKey = "foo":
-- {{fileName}}: My note, My note-1, My note-2
-- {{imageNameKey}}: foo, foo-1, foo-2
-- {{imageNameKey}}-{{DATE:YYYYMMDD}}: foo-20220408, foo-20220408-1, foo-20220408-2
-`
 
 class SettingTab extends PluginSettingTab {
 	plugin: PasteImageRenameConvertPlugin;
@@ -826,10 +811,26 @@ class SettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName('Rename Settings').setHeading();
+		new Setting(containerEl).setName(t('settings.generalSettings')).setHeading();
 		new Setting(containerEl)
-			.setName('Image name pattern')
-			.setDesc(imageNamePatternDesc)
+			.setName(t('settings.language'))
+			.setDesc(t('settings.languageDesc'))
+			.addDropdown(dropdown => dropdown
+				.addOption('en', 'English')
+				.addOption('zh-cn', '简体中文')
+				.setValue(this.plugin.settings.language)
+				.onChange(async (value) => {
+					this.plugin.settings.language = value as 'en' | 'zh-cn';
+					await this.plugin.saveSettings();
+					setLocale(this.plugin.settings.language);
+					this.display();
+				}
+				));
+
+		new Setting(containerEl).setName(t('settings.renameSettings')).setHeading();
+		new Setting(containerEl)
+			.setName(t('settings.imageNamePattern'))
+			.setDesc(t('settings.imageNamePatternDesc'))
 			.setClass('long-description-setting-item')
 			.addText(text => text
 				.setPlaceholder('{{imageNameKey}}')
@@ -841,8 +842,8 @@ class SettingTab extends PluginSettingTab {
 				));
 
 		new Setting(containerEl)
-			.setName('Duplicate number at start (or end)')
-			.setDesc(`If enabled, duplicate number will be added at the start as prefix for the image name, otherwise it will be added at the end as suffix for the image name.`)
+			.setName(t('settings.dupNumberAtStart'))
+			.setDesc(t('settings.dupNumberAtStartDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.dupNumberAtStart)
 				.onChange(async (value) => {
@@ -852,8 +853,8 @@ class SettingTab extends PluginSettingTab {
 				))
 
 		new Setting(containerEl)
-			.setName('Duplicate number delimiter')
-			.setDesc(`The delimiter to generate the number prefix/suffix for duplicated names. For example, if the value is "-", the suffix will be like "-1", "-2", "-3", and the prefix will be like "1-", "2-", "3-". Only characters that are valid in file names are allowed.`)
+			.setName(t('settings.dupNumberDelimiter'))
+			.setDesc(t('settings.dupNumberDelimiterDesc'))
 			.addText(text => text
 				.setValue(this.plugin.settings.dupNumberDelimiter)
 				.onChange(async (value) => {
@@ -863,8 +864,8 @@ class SettingTab extends PluginSettingTab {
 				));
 
 		new Setting(containerEl)
-			.setName('Always add duplicate number')
-			.setDesc(`If enabled, duplicate number will always be added to the image name. Otherwise, it will only be added when the name is duplicated.`)
+			.setName(t('settings.dupNumberAlways'))
+			.setDesc(t('settings.dupNumberAlwaysDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.dupNumberAlways)
 				.onChange(async (value) => {
@@ -874,8 +875,8 @@ class SettingTab extends PluginSettingTab {
 				))
 
 		new Setting(containerEl)
-			.setName('Auto rename')
-			.setDesc(`By default, the rename modal will always be shown to confirm before renaming, if this option is set, the image will be auto renamed after pasting.`)
+			.setName(t('settings.autoRename'))
+			.setDesc(t('settings.autoRenameDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.autoRename)
 				.onChange(async (value) => {
@@ -885,10 +886,8 @@ class SettingTab extends PluginSettingTab {
 				));
 
 		new Setting(containerEl)
-			.setName('Handle all attachments')
-			.setDesc(`By default, the plugin only handles images that starts with "Pasted image " in name,
-			which is the prefix Obsidian uses to create images from pasted content.
-			If this option is set, the plugin will handle all attachments that are created in the vault.`)
+			.setName(t('settings.handleAllAttachments'))
+			.setDesc(t('settings.handleAllAttachmentsDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.handleAllAttachments)
 				.onChange(async (value) => {
@@ -898,9 +897,8 @@ class SettingTab extends PluginSettingTab {
 				));
 
 		new Setting(containerEl)
-			.setName('Exclude extension pattern')
-			.setDesc(`This option is only useful when "Handle all attachments" is enabled.
-			Write a Regex pattern to exclude certain extensions from being handled. Only the first line will be used.`)
+			.setName(t('settings.excludeExtensionPattern'))
+			.setDesc(t('settings.excludeExtensionPatternDesc'))
 			.setClass('single-line-textarea')
 			.addTextArea(text => text
 				.setPlaceholder('docx?|xlsx?|pptx?|zip|rar')
@@ -911,42 +909,38 @@ class SettingTab extends PluginSettingTab {
 				}
 				));
 
-		new Setting(containerEl).setName('Convert Settings').setHeading();
+		new Setting(containerEl).setName(t('settings.convertSettings')).setHeading();
 		new Setting(containerEl)
-			.setName('Convert PNG to JPEG')
-			.setDesc('Enable to automatically convert PNG images to JPEG format')
+			.setName(t('settings.convertPngToJpeg'))
+			.setDesc(t('settings.convertPngToJpegDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.pngToJpeg)
 				.onChange(async (value) => {
 					this.plugin.settings.pngToJpeg = value;
 					if (value) {
-						// If PNG to JPEG is enabled, disable PNG to WebP
 						this.plugin.settings.pngToWebp = false;
-						// Refresh settings page
 						this.display();
 					}
 					await this.plugin.saveSettings();
 				}));
 
 		new Setting(containerEl)
-			.setName('Convert PNG to WebP')
-			.setDesc('Enable to automatically convert PNG images to WebP format (more efficient compression)')
+			.setName(t('settings.convertPngToWebp'))
+			.setDesc(t('settings.convertPngToWebpDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.pngToWebp)
 				.onChange(async (value) => {
 					this.plugin.settings.pngToWebp = value;
 					if (value) {
-						// If PNG to WebP is enabled, disable PNG to JPEG
 						this.plugin.settings.pngToJpeg = false;
-						// Refresh settings page
 						this.display();
 					}
 					await this.plugin.saveSettings();
 				}));
 
 		new Setting(containerEl)
-			.setName('Image Quality')
-			.setDesc('Quality of image conversion (0.1-1.0)')
+			.setName(t('settings.imageQuality'))
+			.setDesc(t('settings.imageQualityDesc'))
 			.addText(text => text
 				.setValue(this.plugin.settings.quality)
 				.onChange(async (value) => {
@@ -955,9 +949,8 @@ class SettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Disable rename notice')
-			.setDesc(`Turn off this option if you don't want to see the notice when renaming images.
-			Note that Obsidian may display a notice when a link has changed, this option cannot disable that.`)
+			.setName(t('settings.disableRenameNotice'))
+			.setDesc(t('settings.disableRenameNoticeDesc'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.disableRenameNotice)
 				.onChange(async (value) => {

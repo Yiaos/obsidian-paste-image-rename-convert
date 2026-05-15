@@ -1,0 +1,79 @@
+{
+	"plugin": {
+		"name": "Paste Image Rename Convert",
+		"description": "Rename pasted images and convert them to webp or jpg"
+	},
+	"commands": {
+		"batchRenameEmbededFiles": "Batch rename embeded files (in the current file)",
+		"batchRenameAllImages": "Batch rename all images instantly (in the current file)"
+	},
+	"notices": {
+		"noActiveFile": "Error: No active file found for renaming",
+		"renameFailed": "Failed to rename file:",
+		"renamedSuccess": "Renamed {{origin}} to {{new}}",
+		"noActiveFileForBatch": "Error: No active file found",
+		"noEmbedsFound": "No embeds found in the current file",
+		"batchRenaming": "Batch renaming images...",
+		"batchRenameComplete": "Batch rename complete: {{success}} files renamed successfully, {{failed}} failed",
+		"noImagesFound": "No images found to rename",
+		"imageConversionFailed": "Image conversion failed: {{error}}"
+	},
+	"imageRenameModal": {
+		"title": "Rename image",
+		"originPath": "Origin path",
+		"newPath": "New path",
+		"newName": "New name",
+		"newNamePlaceholder": "Please input the new name for the image (without extension)",
+		"rename": "Rename",
+		"cancel": "Cancel",
+		"newNameEmptyError": "Error: \"New name\" could not be empty"
+	},
+	"settings": {
+		"generalSettings": "General Settings",
+		"language": "Language",
+		"languageDesc": "Choose the language for the plugin interface",
+		"languageSystem": "Follow system",
+		"renameSettings": "Rename Settings",
+		"imageNamePattern": "Image name pattern",
+		"imageNamePatternDesc": "The pattern indicates how the new name should be generated.\n\nAvailable variables:\n- {{fileName}}: name of the active file, without \".md\" extension.\n- {{dirName}}: name of the directory which contains the document (the root directory of vault results in an empty variable).\n- {{imageNameKey}}: this variable is read from the markdown file's frontmatter, from the same key \"imageNameKey\".\n- {{DATE:$FORMAT}}: use \"$FORMAT\" to format the current date, \"$FORMAT\" must be a Moment.js format string, e.g. {{DATE:YYYY-MM-DD}}.\n\nHere are some examples from pattern to image names (repeat in sequence), variables: fileName = \"My note\", imageNameKey = \"foo\":\n- {{fileName}}: My note, My note-1, My note-2\n- {{imageNameKey}}: foo, foo-1, foo-2\n- {{imageNameKey}}-{{DATE:YYYYMMDD}}: foo-20220408, foo-20220408-1, foo-20220408-2",
+		"dupNumberAtStart": "Duplicate number at start (or end)",
+		"dupNumberAtStartDesc": "If enabled, duplicate number will be added at the start as prefix for the image name, otherwise it will be added at the end as suffix for the image name.",
+		"dupNumberDelimiter": "Duplicate number delimiter",
+		"dupNumberDelimiterDesc": "The delimiter to generate the number prefix/suffix for duplicated names. For example, if the value is \"-\", the suffix will be like \"-1\", \"-2\", \"-3\", and the prefix will be like \"1-\", \"2-\", \"3-\". Only characters that are valid in file names are allowed.",
+		"dupNumberAlways": "Always add duplicate number",
+		"dupNumberAlwaysDesc": "If enabled, duplicate number will always be added to the image name. Otherwise, it will only be added when the name is duplicated.",
+		"autoRename": "Auto rename",
+		"autoRenameDesc": "By default, the rename modal will always be shown to confirm before renaming, if this option is set, the image will be auto renamed after pasting.",
+		"handleAllAttachments": "Handle all attachments",
+		"handleAllAttachmentsDesc": "By default, the plugin only handles images that starts with \"Pasted image \" in name,\nwhich is the prefix Obsidian uses to create images from pasted content.\nIf this option is set, the plugin will handle all attachments that are created in the vault.",
+		"excludeExtensionPattern": "Exclude extension pattern",
+		"excludeExtensionPatternDesc": "This option is only useful when \"Handle all attachments\" is enabled.\nWrite a Regex pattern to exclude certain extensions from being handled. Only the first line will be used.",
+		"convertSettings": "Convert Settings",
+		"convertPngToJpeg": "Convert PNG to JPEG",
+		"convertPngToJpegDesc": "Enable to automatically convert PNG images to JPEG format",
+		"convertPngToWebp": "Convert PNG to WebP",
+		"convertPngToWebpDesc": "Enable to automatically convert PNG images to WebP format (more efficient compression)",
+		"imageQuality": "Image Quality",
+		"imageQualityDesc": "Quality of image conversion (0.1-1.0)",
+		"disableRenameNotice": "Disable rename notice",
+		"disableRenameNoticeDesc": "Turn off this option if you don't want to see the notice when renaming images.\nNote that Obsidian may display a notice when a link has changed, this option cannot disable that."
+	},
+	"batchRenameModal": {
+		"title": "Batch rename embeded files",
+		"namePattern": "Name pattern",
+		"namePatternPlaceholder": "Please input the name pattern to match files (regex)",
+		"extPattern": "Extension pattern",
+		"extPatternPlaceholder": "Please input the extension pattern to match files (regex)",
+		"nameReplace": "Name replace",
+		"nameReplacePlaceholder": "Please input the string to replace the matched name (use $1, $2 for regex groups)",
+		"originalPath": "Original path",
+		"renamedName": "Renamed Name",
+		"renameAll": "Rename all",
+		"cancel": "Cancel",
+		"confirmTitle": "Confirm rename all",
+		"confirmMessage": "Are you sure? This will rename all the {{count}} images matched the pattern.",
+		"namePatternEmptyError": "Error: \"Name pattern\" could not be empty",
+		"yes": "Yes",
+		"no": "No"
+	}
+}
